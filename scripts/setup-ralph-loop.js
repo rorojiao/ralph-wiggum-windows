@@ -22,15 +22,16 @@ function runSetup() {
         // Use PowerShell script on Windows
         script = path.join(pluginRoot, 'scripts', 'setup-ralph-loop.ps1');
 
-        // Build PowerShell command using -Command instead of -File for better argument handling
-        // Escape each argument properly for PowerShell
+        // Build PowerShell command using -File for better argument handling
+        // Quote arguments properly
         const psArgs = args.map(arg => {
-            // Escape for PowerShell: double quotes, backticks, etc.
-            let escaped = arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-            return `"${escaped}"`;
+            if (arg.includes(' ')) {
+                return `'${arg.replace(/'/g, "''")}'`;
+            }
+            return arg;
         }).join(' ');
 
-        command = `chcp 65001 >nul && powershell -NoProfile -ExecutionPolicy Bypass -Command "& '${script}' ${psArgs}"`;
+        command = `powershell -NoProfile -ExecutionPolicy Bypass -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; & '${script}' ${psArgs}"`;
 
         try {
             const result = execSync(command, {
