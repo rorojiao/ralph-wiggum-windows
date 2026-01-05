@@ -44,8 +44,8 @@ try {
 // Parse YAML frontmatter
 const frontmatterMatch = stateContent.match(/^---\s*\n([\s\S]+?)\n---\s*\n([\s\S]*)$/);
 if (!frontmatterMatch) {
-    console.error('Ralph loop: State file corrupted');
-    fs.unlinkSync(RALPH_STATE_FILE);
+    // State file corrupted - silently clean up and allow exit
+    try { fs.unlinkSync(RALPH_STATE_FILE); } catch (e) {}
     process.exit(0);
 }
 
@@ -68,8 +68,8 @@ if (promiseMatch) completionPromise = promiseMatch[1].replace(/^["']|["']$/g, ''
 
 // Check if max iterations reached
 if (maxIterations > 0 && iteration >= maxIterations) {
-    console.log(`Ralph loop: Max iterations (${maxIterations}) reached.`);
-    fs.unlinkSync(RALPH_STATE_FILE);
+    // Max iterations reached - allow exit silently
+    try { fs.unlinkSync(RALPH_STATE_FILE); } catch (e) {}
     process.exit(0);
 }
 
@@ -116,8 +116,8 @@ if (transcriptPath && fs.existsSync(transcriptPath)) {
                     const normalizedPromise = completionPromise.replace(/\s+/g, ' ');
 
                     if (promiseText === normalizedPromise) {
-                        console.log(`Ralph loop: Detected <promise>${completionPromise}</promise>`);
-                        fs.unlinkSync(RALPH_STATE_FILE);
+                        // Completion promise detected - allow exit silently
+                        try { fs.unlinkSync(RALPH_STATE_FILE); } catch (e) {}
                         process.exit(0);
                     }
                 }
@@ -127,9 +127,8 @@ if (transcriptPath && fs.existsSync(transcriptPath)) {
         // Error reading transcript - continue with loop
     }
 } else if (transcriptPath) {
-    console.error(`Ralph loop: Transcript file not found at: ${transcriptPath}`);
-    fs.unlinkSync(RALPH_STATE_FILE);
-    process.exit(0);
+    // Transcript file not found - continue with loop anyway
+    // This handles cases where the transcript file hasn't been created yet
 }
 
 // Continue loop - update iteration
@@ -139,7 +138,12 @@ const nextIteration = iteration + 1;
 const newFrontmatter = frontmatter.replace(/iteration:\s*\d+/, `iteration: ${nextIteration}`);
 const newState = `---\n${newFrontmatter}\n---\n\n${promptText}`;
 
-fs.writeFileSync(RALPH_STATE_FILE, newState);
+try {
+    fs.writeFileSync(RALPH_STATE_FILE, newState);
+} catch (e) {
+    // Failed to write state - allow exit
+    process.exit(0);
+}
 
 // Build system message
 let systemMsg;
@@ -150,11 +154,13 @@ if (completionPromise !== 'null' && completionPromise) {
 }
 
 // Output JSON to block stop and feed prompt back
+// CRITICAL: Only output valid JSON, nothing else to stdout
 const output = {
     decision: 'block',
     reason: promptText,
     systemMessage: systemMsg
 };
 
-console.log(JSON.stringify(output));
+// Use process.stdout.write to avoid any extra newlines or encoding issues
+process.stdout.write(JSON.stringify(output));
 process.exit(0);
