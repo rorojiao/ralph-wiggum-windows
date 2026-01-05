@@ -29,14 +29,20 @@ ARGUMENTS:
 
 OPTIONS:
   --max-iterations <n>           Maximum iterations before auto-stop (default: unlimited)
-  --completion-promise '<text>'  Promise phrase (USE QUOTES for multi-word)
+  --completion-promise '<text>'  Custom completion phrase (USE QUOTES for multi-word)
   -h, --help                     Show this help message
 
 DESCRIPTION:
   Starts a Ralph Wiggum loop in your CURRENT session. The stop hook prevents
   exit and feeds your output back as input until completion or iteration limit.
 
-  To signal completion, you must output: <promise>YOUR_PHRASE</promise>
+COMPLETION DETECTION:
+  - WITHOUT --completion-promise: Auto-detects common phrases like:
+    * Chinese: 完成, 已完成, 交付完成, 任务完成, ✅完成
+    * English: done, completed, finished, task complete
+  - WITH --completion-promise: Only exits when <promise>YOUR_PHRASE</promise> is output
+
+  To manually stop: output <promise>DONE</promise> or <promise>完成</promise>
 
   Use this for:
   - Interactive iteration where you want to see progress
@@ -46,12 +52,13 @@ DESCRIPTION:
 EXAMPLES:
   /ralph-loop Build a todo API --completion-promise 'DONE' --max-iterations 20
   /ralph-loop --max-iterations 10 Fix the auth bug
-  /ralph-loop Refactor cache layer  (runs forever)
+  /ralph-loop Refactor cache layer  (auto-stops on completion phrases)
   /ralph-loop --completion-promise 'TASK COMPLETE' Create a REST API
 
 STOPPING:
-  Only by reaching --max-iterations or detecting --completion-promise
-  No manual stop - Ralph runs infinitely by default!
+  - Auto-stop when completion phrases detected (default mode)
+  - When --max-iterations reached
+  - When --completion-promise phrase is output
 
 MONITORING:
   # View current iteration:
