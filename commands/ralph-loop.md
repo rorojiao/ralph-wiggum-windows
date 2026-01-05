@@ -10,7 +10,7 @@ hide-from-slash-command-tool: "true"
 Execute the setup script to initialize the Ralph loop:
 
 ```!
-node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-ralph-loop.js" $ARGUMENTS
+export RALPH_ARGS="$ARGUMENTS" && node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-ralph-loop.js"
 ```
 
 Display the completion promise if set:

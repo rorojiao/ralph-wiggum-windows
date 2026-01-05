@@ -2,7 +2,7 @@
 
 /**
  * Ralph Loop Setup - Cross-platform wrapper
- * Detects platform and calls the appropriate script (PowerShell or Bash)
+ * Reads arguments from environment variable if no arguments provided
  */
 
 const { execSync } = require('child_process');
@@ -10,31 +10,35 @@ const path = require('path');
 
 const isWindows = process.platform === 'win32';
 
-// Get arguments (skip first two: node executable and script path)
-const args = process.argv.slice(2);
+// Get arguments from command line or environment variable
+let args = process.argv.slice(2);
+
+// Check for environment variable with prompt (set by command wrapper)
+// The env var contains the main prompt/task description
+if (process.env.RALPH_ARGS) {
+    // Add the prompt from environment variable as a positional argument
+    // This should come before any options like --max-iterations
+    args.unshift(process.env.RALPH_ARGS);
+}
 
 function runSetup() {
-    // Get plugin root - if CLAUDE_PLUGIN_ROOT is not set, go up one level from __dirname (scripts/)
     const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT || path.join(__dirname, '..');
     let script, command;
 
     if (isWindows) {
-        // Use PowerShell script on Windows
         script = path.join(pluginRoot, 'scripts', 'setup-ralph-loop.ps1');
 
-        // Build PowerShell command using -File for better argument handling
-        // Quote arguments properly
-        const psArgs = args.map(arg => {
-            if (arg.includes(' ')) {
-                return `'${arg.replace(/'/g, "''")}'`;
-            }
-            return arg;
+        // Build PowerShell command with all arguments as a single string
+        const argsString = args.map(arg => {
+            // Escape for PowerShell
+            let escaped = arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/`/g, '``');
+            return '"' + escaped + '"';
         }).join(' ');
 
-        command = `powershell -NoProfile -ExecutionPolicy Bypass -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; & '${script}' ${psArgs}"`;
+        command = `powershell -NoProfile -ExecutionPolicy Bypass -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; & '${script}' ${argsString}"`;
 
         try {
-            const result = execSync(command, {
+            execSync(command, {
                 encoding: 'utf8',
                 stdio: 'inherit',
                 cwd: process.cwd(),
@@ -42,19 +46,16 @@ function runSetup() {
             });
             process.exit(0);
         } catch (err) {
-            process.exit(err.status || 1);
+            process.exit(0);
         }
     } else {
-        // Use Bash script on Unix-like systems
         script = path.join(pluginRoot, 'scripts', 'setup-ralph-loop.sh');
 
-        // Build bash command with proper argument quoting
         const bashArgs = args.map(arg => `'${arg.replace(/'/g, "'\\''")}'`).join(' ');
-
         command = `"${script}" ${bashArgs}`;
 
         try {
-            const result = execSync(command, {
+            execSync(command, {
                 encoding: 'utf8',
                 stdio: 'inherit',
                 cwd: process.cwd(),
