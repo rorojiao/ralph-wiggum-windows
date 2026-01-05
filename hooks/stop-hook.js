@@ -7,7 +7,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 // Read hook input from stdin
 let hookInput = '';
@@ -55,7 +54,7 @@ const promptText = frontmatterMatch[2].trim();
 // Parse frontmatter values
 let iteration = 0;
 let maxIterations = 0;
-let completionPromise = 'null';
+let completionPromise = null;
 
 const iterMatch = frontmatter.match(/iteration:\s*(\d+)/);
 if (iterMatch) iteration = parseInt(iterMatch[1], 10);
@@ -63,8 +62,20 @@ if (iterMatch) iteration = parseInt(iterMatch[1], 10);
 const maxIterMatch = frontmatter.match(/max_iterations:\s*(\d+)/);
 if (maxIterMatch) maxIterations = parseInt(maxIterMatch[1], 10);
 
-const promiseMatch = frontmatter.match(/completion_promise:\s*"?([^"\n]+)"?/);
-if (promiseMatch) completionPromise = promiseMatch[1].replace(/^["']|["']$/g, '');
+// Parse completion_promise - handle both quoted and unquoted values
+// First try to match quoted value: completion_promise: "value"
+const quotedPromiseMatch = frontmatter.match(/completion_promise:\s*"([^"]*)"/);
+if (quotedPromiseMatch) {
+    completionPromise = quotedPromiseMatch[1];
+} else {
+    // Try to match unquoted value: completion_promise: value or completion_promise: null
+    const unquotedPromiseMatch = frontmatter.match(/completion_promise:\s*(\S+)/);
+    if (unquotedPromiseMatch) {
+        const val = unquotedPromiseMatch[1];
+        // If it's the literal string "null", set to null, otherwise use the value
+        completionPromise = (val === 'null') ? null : val;
+    }
+}
 
 // Check if max iterations reached
 if (maxIterations > 0 && iteration >= maxIterations) {
@@ -109,7 +120,7 @@ if (transcriptPath && fs.existsSync(transcriptPath)) {
             }
 
             // Check for completion promise
-            if (completionPromise !== 'null' && completionPromise) {
+            if (completionPromise && completionPromise !== null) {
                 const promiseTagMatch = lastOutput.match(/<promise>\s*([\s\S]*?)\s*<\/promise>/);
                 if (promiseTagMatch) {
                     const promiseText = promiseTagMatch[1].trim().replace(/\s+/g, ' ');
@@ -147,7 +158,7 @@ try {
 
 // Build system message
 let systemMsg;
-if (completionPromise !== 'null' && completionPromise) {
+if (completionPromise && completionPromise !== null) {
     systemMsg = `Ralph iteration ${nextIteration} | To stop: output <promise>${completionPromise}</promise> (ONLY when TRUE)`;
 } else {
     systemMsg = `Ralph iteration ${nextIteration} | No completion promise set - loop runs infinitely`;
